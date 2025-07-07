@@ -1,520 +1,334 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouTube Downloader | Sakum</title>
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary-color: #4361ee;
-            --secondary-color: #3f37c9;
-            --accent-color: #4cc9f0;
-            --dark-color: #1a1a2e;
-            --light-color: #f8f9fa;
-            --success-color: #4bb543;
-            --warning-color: #ffcc00;
-            --danger-color: #f94144;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            padding: 20px 0;
-        }
-
-        .card {
-            border: none;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-        }
-
-        .card-header {
-            background: var(--primary-color);
-            color: white;
-            padding: 20px;
-            text-align: center;
-            border-bottom: none;
-        }
-
-        .card-title {
-            font-weight: 700;
-            margin: 0;
-            font-size: 1.8rem;
-        }
-
-        .card-body {
-            padding: 30px;
-        }
-
-        .form-control, .form-select {
-            border-radius: 8px;
-            padding: 12px 15px;
-            border: 2px solid #e9ecef;
-            transition: all 0.3s;
-        }
-
-        .form-control:focus, .form-select:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25);
-        }
-
-        .btn-primary {
-            background-color: var(--primary-color);
-            border: none;
-            border-radius: 8px;
-            padding: 12px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            transition: all 0.3s;
-        }
-
-        .btn-primary:hover {
-            background-color: var(--secondary-color);
-            transform: translateY(-2px);
-        }
-
-        .btn-success {
-            background-color: var(--success-color);
-            border: none;
-            border-radius: 8px;
-            padding: 12px;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-
-        .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(75, 181, 67, 0.4);
-        }
-
-        #progress-container {
-            display: none;
-            width: 100%;
-            height: 10px;
-            background: #e9ecef;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-top: 20px;
-            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        #progress-bar {
-            width: 0%;
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
-            transition: width 0.3s ease;
-            position: relative;
-        }
-
-        #progress-bar::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(90deg, 
-                            transparent, 
-                            rgba(255, 255, 255, 0.3), 
-                            transparent);
-            animation: shimmer 2s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-
-        #progress-text {
-            display: none;
-            text-align: center;
-            margin-top: 10px;
-            font-weight: 600;
-            color: var(--dark-color);
-        }
-
-        #download-link {
-            display: none;
-            margin-top: 20px;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(75, 181, 67, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(75, 181, 67, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(75, 181, 67, 0); }
-        }
-
-        #thumbnail-container {
-            display: none;
-            text-align: center;
-            margin: 20px 0;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s;
-        }
-
-        #thumbnail-container:hover {
-            transform: scale(1.02);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        }
-
-        #thumbnail {
-            width: 100%;
-            max-height: 250px;
-            object-fit: cover;
-            transition: all 0.3s;
-        }
-
-        #quality-warning {
-            color: var(--danger-color);
-            font-size: 14px;
-            margin-top: 10px;
-            font-weight: 500;
-        }
-
-        #quality-option {
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        .loading-text {
-            font-weight: 600;
-            margin-top: 10px;
-            color: var(--dark-color);
-        }
-
-        .spinner-border {
-            width: 2.5rem;
-            height: 2.5rem;
-            border-width: 0.2em;
-        }
-
-        .form-label {
-            font-weight: 600;
-            color: var(--dark-color);
-            margin-bottom: 8px;
-        }
-
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            .card-title {
-                font-size: 1.5rem;
-            }
-            
-            .card-body {
-                padding: 20px;
-            }
-            
-            .container {
-                padding: 0 15px;
+    <title>YouTube Downloader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            500: '#3B82F6',
+                            600: '#2563EB',
+                        },
+                        success: {
+                            500: '#10B981',
+                            600: '#059669',
+                        }
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
             }
         }
-
-        @media (max-width: 576px) {
-            #quality-option {
-                max-height: 150px;
-            }
-
-            .card-title {
-                font-size: 1.3rem;
-            }
-            
-            .btn, .form-control, .form-select {
-                padding: 10px 12px;
-            }
-        }
-
-        /* Floating animation for the card */
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-            100% { transform: translateY(0px); }
-        }
-
-        .card {
-            animation: float 6s ease-in-out infinite;
-        }
-    </style>
+    </script>
 </head>
-<body>
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-8 col-md-10">
-                <div class="card">
-                    <div class="card-header">
-                        <h1 class="card-title"><i class="fas fa-download me-2"></i>YouTube Downloader</h1>
-                    </div>
-                    <div class="card-body">
-                        <form onsubmit="event.preventDefault(); startDownload();">
-                            <div class="mb-4">
-                                <label for="video-url" class="form-label">YouTube Video URL</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="fas fa-link"></i></span>
-                                    <input type="text" id="video-url" name="url" class="form-control" placeholder="https://www.youtube.com/watch?v=..." required>
-                                </div>
-                            </div>
-                            
-                            <div id="thumbnail-container">
-                                <img id="thumbnail" src="" alt="Video Thumbnail" class="img-fluid rounded">
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="format-option" class="form-label">Format</label>
-                                    <select id="format-option" name="format" class="form-select" onchange="toggleQualityOptions()">
-                                        <option value="">Select Format</option>
-                                        <option value="video">Video</option>
-                                        <option value="audio">Audio Only</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6 mb-3" id="quality-container" style="display: none;">
-                                    <label for="quality-option" class="form-label">Quality</label>
-                                    <select id="quality-option" name="quality" class="form-select" onchange="checkQualitySupport()">
-                                        <option value="">Select Quality</option>
-                                    </select>
-                                    <div id="quality-warning"></div>
-                                </div>
-                            </div>
-                            
-                            <button type="submit" class="btn btn-primary w-100 mt-2">
-                                <i class="fas fa-cloud-download-alt me-2"></i>Download
-                            </button>
-                        </form>
-
-                        <div id="loading" class="text-center mt-4" style="display: none;">
-                            <div class="spinner-border text-primary" role="status"></div>
-                            <p class="loading-text mt-2">Processing your request...</p>
-                        </div>
-
-                        <div id="progress-container">
-                            <div id="progress-bar"></div>
-                        </div>
-                        <p id="progress-text">0%</p>
-                        
-                        <a id="download-link" class="btn btn-success w-100" href="#" download>
-                            <i class="fas fa-file-download me-2"></i>Download File
-                        </a>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-download text-blue-500 text-xl mr-2"></i>
+                        <span class="text-xl font-bold text-gray-800">YouTubeDL</span>
                     </div>
                 </div>
-                <div class="text-center mt-4 text-muted">
-                    <small>© 2023 YouTube Downloader | Created with <i class="fas fa-heart text-danger"></i> by Sakum</small>
+                <div class="flex items-center space-x-4">
+                    <a href="/playlist" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                        <i class="fas fa-list-ol mr-1"></i> Download Playlist
+                    </a>
+                    <a href="https://github.com/SakumDisiniPa/yt-download-python" target="_blank" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                        <i class="fab fa-github mr-1"></i> GitHub
+                    </a>
                 </div>
             </div>
         </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-3xl mx-auto px-4 py-8">
+        <div class="bg-white rounded-xl shadow-md overflow-hidden p-6 animate-float">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2"><i class="fas fa-download text-blue-500 mr-2"></i>YouTube Downloader</h1>
+                <p class="text-gray-600">Download your favorite YouTube videos in high quality</p>
+            </div>
+
+            <!-- Download Form -->
+            <div class="space-y-4">
+                <div>
+                    <label for="video-url" class="block text-sm font-medium text-gray-700 mb-1">YouTube Video URL</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-link text-gray-400"></i>
+                        </div>
+                        <input type="text" id="video-url" placeholder="https://www.youtube.com/watch?v=..." 
+                               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div id="thumbnail-container" class="hidden rounded-lg overflow-hidden shadow-sm">
+                    <img id="thumbnail" src="" alt="Video Thumbnail" class="w-full h-48 object-cover">
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="format-option" class="block text-sm font-medium text-gray-700 mb-1">Format</label>
+                        <select id="format-option" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Select Format</option>
+                            <option value="video">Video</option>
+                            <option value="audio">Audio Only</option>
+                        </select>
+                    </div>
+                    <div id="quality-container" class="hidden">
+                        <label for="quality-option" class="block text-sm font-medium text-gray-700 mb-1">Quality</label>
+                        <select id="quality-option" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Select Quality</option>
+                        </select>
+                        <p id="quality-warning" class="text-xs text-red-500 mt-1 hidden"></p>
+                    </div>
+                </div>
+
+                <button id="download-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center">
+                    <i class="fas fa-cloud-download-alt mr-2"></i> Download
+                </button>
+            </div>
+
+            <!-- Progress Section -->
+            <div id="progress-container" class="mt-8 hidden">
+                <div class="mb-2 flex justify-between text-sm text-gray-600">
+                    <span id="status-message">Preparing download...</span>
+                    <span id="progress-text">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progress-bar" class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+
+                <div id="loading" class="mt-4 text-center hidden">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                    <p class="text-gray-600 mt-2">Processing your request...</p>
+                </div>
+            </div>
+
+            <!-- Download Link -->
+            <div id="download-link" class="mt-6 text-center hidden animate-pulse-slow">
+                <a id="file-download-link" class="inline-flex items-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg transition duration-200">
+                    <i class="fas fa-file-download mr-2"></i> Download File
+                </a>
+            </div>
+
+            <!-- Error Message -->
+            <div id="error-message" class="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded hidden"></div>
+        </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
     <script>
-        const socket = io();
-        let availableQualities = [];
+        document.addEventListener('DOMContentLoaded', function() {
+            const videoUrlInput = document.getElementById('video-url');
+            const formatSelect = document.getElementById('format-option');
+            const qualityContainer = document.getElementById('quality-container');
+            const qualitySelect = document.getElementById('quality-option');
+            const downloadBtn = document.getElementById('download-btn');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
+            const statusMessage = document.getElementById('status-message');
+            const progressText = document.getElementById('progress-text');
+            const loadingIndicator = document.getElementById('loading');
+            const downloadLink = document.getElementById('download-link');
+            const fileDownloadLink = document.getElementById('file-download-link');
+            const errorMessage = document.getElementById('error-message');
+            const thumbnailContainer = document.getElementById('thumbnail-container');
+            const thumbnail = document.getElementById('thumbnail');
+            const qualityWarning = document.getElementById('quality-warning');
+            
+            // Connect to Socket.IO
+            const socket = io();
+            
+            // Track the current download
+            let currentDownloadId = null;
+            
+            // Show/hide quality based on format selection
+            formatSelect.addEventListener('change', function() {
+                qualityContainer.classList.toggle('hidden', this.value !== 'video');
+            });
+            
+            // Handle URL input changes
+            videoUrlInput.addEventListener('input', function() {
+                const url = this.value.trim();
+                if (!url) {
+                    thumbnailContainer.classList.add('hidden');
+                    return;
+                }
 
-        document.getElementById("download-link").addEventListener("click", function () {
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
-        });
+                // Show video thumbnail
+                const videoId = getYouTubeVideoId(url);
+                if (videoId) {
+                    thumbnail.src = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+                    thumbnail.onerror = function() {
+                        this.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                    };
+                    thumbnailContainer.classList.remove('hidden');
+                } else {
+                    thumbnailContainer.classList.add('hidden');
+                }
 
-        document.getElementById('video-url').addEventListener('input', function () {
-            let url = this.value.trim();
-            if (!url) {
-                document.getElementById("thumbnail-container").style.display = "none";
-                return;
-            }
-
-            // Get video thumbnail
-            let videoId = getYouTubeVideoId(url);
-            if (videoId) {
-                let thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-                document.getElementById("thumbnail").src = thumbnailUrl;
-                document.getElementById("thumbnail").onerror = function() {
-                    this.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-                };
-                document.getElementById("thumbnail-container").style.display = "block";
-            } else {
-                document.getElementById("thumbnail-container").style.display = "none";
-            }
-
-            // Fetch available qualities
-            fetch(`/get_available_qualities?url=${encodeURIComponent(url)}`)
+                // Fetch available qualities
+                fetch(`/get_available_qualities?url=${encodeURIComponent(url)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        qualitySelect.innerHTML = '<option value="">Select Quality</option>';
+                        
+                        if (data.qualities && data.qualities.length > 0) {
+                            const qualities = data.qualities
+                                .map(q => parseInt(q))
+                                .filter(q => !isNaN(q))
+                                .sort((a, b) => a - b);
+                            
+                            qualities.forEach(q => {
+                                const option = document.createElement('option');
+                                option.value = q;
+                                let label = `${q}p`;
+                                if (q === 720) label += ' (HD)';
+                                if (q === 1080) label += ' (Full HD)';
+                                if (q === 1440) label += ' (2K)';
+                                if (q === 2160) label += ' (4K)';
+                                if (q === 4320) label += ' (8K)';
+                                option.textContent = label;
+                                qualitySelect.appendChild(option);
+                            });
+                            
+                            qualityWarning.classList.toggle('hidden', qualities.length > 0);
+                            qualityWarning.textContent = qualities.length === 0 ? 
+                                'No quality information available for this video' : '';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching qualities:', error);
+                    });
+            });
+            
+            // Handle download button click
+            downloadBtn.addEventListener('click', function() {
+                const url = videoUrlInput.value.trim();
+                const format = formatSelect.value;
+                const quality = qualitySelect.value;
+                
+                if (!url) {
+                    showError('Please enter a YouTube URL');
+                    return;
+                }
+                
+                if (!format) {
+                    showError('Please select a format');
+                    return;
+                }
+                
+                if (format === 'video' && !quality) {
+                    showError('Please select a video quality');
+                    return;
+                }
+                
+                // Reset UI
+                progressContainer.classList.remove('hidden');
+                progressBar.style.width = '0%';
+                statusMessage.textContent = 'Starting download...';
+                progressText.textContent = '0%';
+                loadingIndicator.classList.remove('hidden');
+                downloadLink.classList.add('hidden');
+                errorMessage.classList.add('hidden');
+                downloadBtn.disabled = true;
+                
+                // Start download
+                fetch('/download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `url=${encodeURIComponent(url)}&format=${format}&quality=${quality}`
+                })
                 .then(response => response.json())
                 .then(data => {
-                    let qualitySelect = document.getElementById("quality-option");
-                    let defaultQualities = [144, 240, 360, 480, 720, 1080, 1440, 2160, 4320];
-                    qualitySelect.innerHTML = '<option value="">Select Video Quality</option>';
-
-                    if (data.qualities) {
-                        let availableQualities = data.qualities
-                            .map(q => parseInt(q))
-                            .filter(q => !isNaN(q) && q >= 144)
-                            .sort((a, b) => a - b);
-
-                        let finalQualities = defaultQualities.filter(q => availableQualities.includes(q));
-
-                        // Set size attribute based on number of options
-                        qualitySelect.size = finalQualities.length > 5 ? 5 : finalQualities.length + 1;
-
-                        finalQualities.forEach(q => {
-                            let option = document.createElement("option");
-                            option.value = q;
-                            let label = `${q}p`;
-                            if (q === 720) label += " (HD)";
-                            if (q === 1080) label += " (Full HD)";
-                            if (q === 1440) label += " (2K)";
-                            if (q === 2160) label += " (4K)";
-                            if (q === 4320) label += " (8K)";
-                            option.textContent = label;
-                            qualitySelect.appendChild(option);
-                        });
-
-                        let warningDiv = document.getElementById("quality-warning");
-                        warningDiv.textContent = finalQualities.length === 0 ? "Video quality is very low or not available." : "";
+                    if (data.client_id) {
+                        currentDownloadId = data.client_id;
+                        trackProgress(data.client_id);
+                    } else {
+                        showError('Failed to start download');
+                        resetUI();
                     }
                 })
-                .catch(error => console.error("Error fetching qualities:", error));
-        });
-
-        function startDownload() {
-            let url = document.getElementById("video-url").value.trim();
-            let format = document.getElementById("format-option").value;
-            let quality = document.getElementById("quality-option").value;
-
-            if (!url) {
-                showAlert("Please enter a YouTube URL", "danger");
-                return;
-            }
-
-            if (!format) {
-                showAlert("Please select a format", "danger");
-                return;
-            }
-
-            if (format === "video" && !quality) {
-                showAlert("Please select a video quality", "danger");
-                return;
-            }
-
-            console.log("Starting download...");
-
-            // Show loading state
-            document.getElementById("progress-container").style.display = "block";
-            document.getElementById("progress-bar").style.width = "0%";
-            document.getElementById("progress-text").textContent = "0%";
-            document.getElementById("progress-text").style.display = "block";
-            document.getElementById("loading").style.display = "block";
-            document.getElementById("download-link").style.display = "none";
-
-            fetch("/download", {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: new URLSearchParams({ url, format, quality })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.client_id) {
-                    trackProgress(data.client_id);
-                } else {
-                    showAlert("Failed to start download", "danger");
+                .catch(err => {
+                    showError('Error starting download: ' + err.message);
                     resetUI();
-                }
-            })
-            .catch(error => {
-                console.error("Error:", error);
-                showAlert("An error occurred", "danger");
-                resetUI();
+                });
             });
-        }
-
-        function trackProgress(client_id) {
-            socket.on("progress_update", function (data) {
-                if (data.client_id === client_id) {
-                    let progress = data.progress;
-                    document.getElementById("progress-bar").style.width = progress + "%";
-                    document.getElementById("progress-text").textContent = progress + "%";
-                    
-                    // Change color based on progress
-                    if (progress >= 90) {
-                        document.getElementById("progress-bar").style.background = "linear-gradient(90deg, var(--success-color), #2ecc71)";
+            
+            // Track download progress
+            function trackProgress(clientId) {
+                socket.on('progress_update', function(data) {
+                    if (data.client_id === clientId) {
+                        const progress = data.progress;
+                        progressBar.style.width = progress + '%';
+                        progressText.textContent = progress + '%';
+                        statusMessage.textContent = 'Downloading...';
+                        
+                        // Change progress bar color when nearing completion
+                        if (progress >= 90) {
+                            progressBar.classList.remove('bg-blue-500');
+                            progressBar.classList.add('bg-green-500');
+                        }
                     }
-                }
-            });
-
-            socket.on("download_complete", function (data) {
-                if (data.client_id === client_id) {
-                    document.getElementById("loading").style.display = "none";
-                    let downloadLink = document.getElementById("download-link");
-                    downloadLink.style.display = "block";
-                    downloadLink.href = "/download_file?filename=" + encodeURIComponent(data.filename);
-                    
-                    // Show completion message
-                    showAlert("Download completed successfully!", "success");
-                }
-            });
-
-            socket.on("download_failed", function (data) {
-                if (data.client_id === client_id) {
-                    showAlert("Download failed: " + (data.message || "Unknown error"), "danger");
-                    resetUI();
-                }
-            });
-        }
-
-        function toggleQualityOptions() {
-            let format = document.getElementById("format-option").value;
-            document.getElementById("quality-container").style.display = format === "video" ? "block" : "none";
-        }
-
-        function getYouTubeVideoId(url) {
-            let match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*[?&]v=|embed\/|v\/|shorts\/))([^"&?\/\s]{11})/);
-            return match ? match[1] : null;
-        }
-
-        function resetUI() {
-            document.getElementById("loading").style.display = "none";
-            document.getElementById("progress-container").style.display = "none";
-            document.getElementById("progress-text").style.display = "none";
-        }
-
-        function showAlert(message, type) {
-            // Create alert element
-            let alert = document.createElement("div");
-            alert.className = `alert alert-${type} alert-dismissible fade show mt-3`;
-            alert.role = "alert";
-            alert.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            `;
-            
-            // Insert after the form
-            let cardBody = document.querySelector(".card-body");
-            let existingAlert = cardBody.querySelector(".alert");
-            if (existingAlert) {
-                cardBody.replaceChild(alert, existingAlert);
-            } else {
-                let form = cardBody.querySelector("form");
-                cardBody.insertBefore(alert, form.nextSibling);
+                });
+                
+                socket.on('download_complete', function(data) {
+                    if (data.client_id === clientId) {
+                        loadingIndicator.classList.add('hidden');
+                        statusMessage.textContent = 'Download complete!';
+                        
+                        // Show download link
+                        fileDownloadLink.href = `/download_file?filename=${encodeURIComponent(data.filename)}`;
+                        fileDownloadLink.textContent = `Download ${data.filename}`;
+                        downloadLink.classList.remove('hidden');
+                        
+                        downloadBtn.disabled = false;
+                    }
+                });
+                
+                socket.on('download_failed', function(data) {
+                    if (data.client_id === clientId) {
+                        showError(data.message || 'Download failed');
+                        resetUI();
+                    }
+                });
             }
             
-            // Auto dismiss after 5 seconds
-            setTimeout(() => {
-                let bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            }, 5000);
-        }
+            // Helper functions
+            function getYouTubeVideoId(url) {
+                const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*[?&]v=|embed\/|v\/|shorts\/))([^"&?\/\s]{11})/);
+                return match ? match[1] : null;
+            }
+            
+            function resetUI() {
+                loadingIndicator.classList.add('hidden');
+                downloadBtn.disabled = false;
+            }
+            
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.classList.remove('hidden');
+                setTimeout(() => {
+                    errorMessage.classList.add('hidden');
+                }, 5000);
+            }
+        });
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

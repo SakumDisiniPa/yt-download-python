@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playlist Downloader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            500: '#3B82F6',
+                            600: '#2563EB',
+                        },
+                        success: {
+                            500: '#10B981',
+                            600: '#059669',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-music text-blue-500 text-xl mr-2"></i>
+                        <span class="text-xl font-bold text-gray-800">PlaylistDL</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                        <i class="fas fa-download mr-1"></i> Download Video
+                    </a>
+                    <a href="https://github.com/SakumDisiniPa/yt-download-python" target="_blank" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                        <i class="fab fa-github mr-1"></i> GitHub
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-3xl mx-auto px-4 py-8">
+        <div class="bg-white rounded-xl shadow-md overflow-hidden p-6">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">Playlist Downloader</h1>
+                <p class="text-gray-600">Download your favorite playlists from Spotify or YouTube Music</p>
+            </div>
+
+            <!-- Download Form -->
+            <div class="space-y-4">
+                <div>
+                    <label for="service" class="block text-sm font-medium text-gray-700 mb-1">Select Service</label>
+                    <select id="service" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="spotify">Spotify</option>
+                        <option value="youtube_music">YouTube Music</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="playlist-url" class="block text-sm font-medium text-gray-700 mb-1">Playlist URL</label>
+                    <input type="text" id="playlist-url" placeholder="https://open.spotify.com/playlist/..." 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="format" class="block text-sm font-medium text-gray-700 mb-1">Format</label>
+                        <select id="format" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="audio">Audio Only</option>
+                            <option value="video">Video</option>
+                        </select>
+                    </div>
+                    <div id="quality-group" class="hidden">
+                        <label for="quality" class="block text-sm font-medium text-gray-700 mb-1">Quality (for video)</label>
+                        <select id="quality" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="144">144p</option>
+                            <option value="240">240p</option>
+                            <option value="360">360p</option>
+                            <option value="480">480p</option>
+                            <option value="720">720p (HD)</option>
+                            <option value="1080">1080p (Full HD)</option>
+                            <option value="1440">1440p (2K)</option>
+                            <option value="2160">2160p (4K)</option>
+                            <option value="4320">4320p (8K)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="download-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition duration-200 flex items-center justify-center">
+                    <i class="fas fa-cloud-download-alt mr-2"></i> Download Playlist
+                </button>
+            </div>
+
+            <!-- Progress Section -->
+            <div id="progress-container" class="mt-8 hidden">
+                <div class="mb-2 flex justify-between text-sm text-gray-600">
+                    <span id="status-message">Preparing to download playlist...</span>
+                    <span id="track-info">0 of 0 tracks processed</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progress" class="bg-blue-500 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+
+                <div id="zipping-message" class="mt-4 text-center text-gray-600 hidden">
+                    <i class="fas fa-file-archive animate-pulse mr-2"></i>
+                    <span>Creating ZIP file...</span>
+                </div>
+            </div>
+
+            <!-- Download Link -->
+            <div id="download-link" class="mt-6 text-center hidden">
+                <a id="zip-download-link" class="inline-flex items-center px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg transition duration-200">
+                    <i class="fas fa-file-archive mr-2"></i> Download ZIP File
+                </a>
+            </div>
+
+            <!-- Error Message -->
+            <div id="error-message" class="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const serviceSelect = document.getElementById('service');
+            const playlistUrlInput = document.getElementById('playlist-url');
+            const formatSelect = document.getElementById('format');
+            const qualityGroup = document.getElementById('quality-group');
+            const qualitySelect = document.getElementById('quality');
+            const downloadBtn = document.getElementById('download-btn');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress');
+            const statusMessage = document.getElementById('status-message');
+            const trackInfo = document.getElementById('track-info');
+            const zippingMessage = document.getElementById('zipping-message');
+            const downloadLink = document.getElementById('download-link');
+            const zipDownloadLink = document.getElementById('zip-download-link');
+            const errorMessage = document.getElementById('error-message');
+            
+            // Connect to Socket.IO
+            const socket = io();
+            
+            // Track the current download
+            let currentDownloadId = null;
+            
+            // Show/hide quality based on format selection
+            formatSelect.addEventListener('change', function() {
+                qualityGroup.classList.toggle('hidden', this.value !== 'video');
+            });
+            
+            // Handle download button click
+            downloadBtn.addEventListener('click', function() {
+                const service = serviceSelect.value;
+                const playlistUrl = playlistUrlInput.value.trim();
+                const format = formatSelect.value;
+                const quality = format === 'video' ? qualitySelect.value : 'best';
+                
+                if (!playlistUrl) {
+                    showError('Please enter a playlist URL');
+                    return;
+                }
+                
+                // Reset UI
+                progressContainer.classList.remove('hidden');
+                progressBar.style.width = '0%';
+                statusMessage.textContent = 'Preparing to download playlist...';
+                trackInfo.textContent = '0 of 0 tracks processed';
+                downloadLink.classList.add('hidden');
+                errorMessage.classList.add('hidden');
+                downloadBtn.disabled = true;
+                zippingMessage.classList.add('hidden');
+                
+                // Start download
+                fetch('/download_playlist', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `url=${encodeURIComponent(playlistUrl)}&format=${format}&quality=${quality}&service=${service}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'playlist download started') {
+                        currentDownloadId = data.client_id;
+                    } else {
+                        showError('Failed to start download');
+                        downloadBtn.disabled = false;
+                    }
+                })
+                .catch(err => {
+                    showError('Error starting download: ' + err.message);
+                    downloadBtn.disabled = false;
+                });
+            });
+            
+            // Handle playlist progress updates
+            socket.on('playlist_progress', function(data) {
+                if (data.client_id === currentDownloadId) {
+                    if (data.stage === 'downloading') {
+                        progressBar.style.width = data.progress + '%';
+                        trackInfo.textContent = `${data.current} of ${data.total} tracks downloaded`;
+                        statusMessage.textContent = 'Downloading playlist...';
+                    } else if (data.stage === 'zipping') {
+                        progressBar.style.width = '100%';
+                        trackInfo.textContent = '';
+                        statusMessage.textContent = 'Download complete!';
+                        zippingMessage.classList.remove('hidden');
+                    }
+                }
+            });
+            
+            // Handle playlist completion
+            socket.on('playlist_download_complete', function(data) {
+                if (data.client_id === currentDownloadId) {
+                    progressBar.style.width = '100%';
+                    statusMessage.textContent = 'Playlist download complete!';
+                    trackInfo.textContent = '';
+                    zippingMessage.classList.add('hidden');
+                    
+                    // Show download link for the zip file
+                    zipDownloadLink.href = `/download_file?filename=${encodeURIComponent(data.filename)}`;
+                    zipDownloadLink.textContent = `Download ${data.filename}`;
+                    downloadLink.classList.remove('hidden');
+                    
+                    downloadBtn.disabled = false;
+                }
+            });
+            
+            // Handle errors
+            socket.on('playlist_download_failed', function(data) {
+                if (data.client_id === currentDownloadId) {
+                    showError(data.message || 'Failed to download playlist');
+                    downloadBtn.disabled = false;
+                }
+            });
+            
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

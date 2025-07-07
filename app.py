@@ -6,7 +6,11 @@ import os
 import threading
 import time
 import uuid
-from datetime import datetime, timedelta
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
+import re
+import zipfile
+import shutil
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -14,6 +18,16 @@ minify(app=app, html=True, js=True, cssless=True)
 
 DOWNLOAD_FOLDER = "downloads"
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
+
+# Spotify credentials
+SPOTIPY_CLIENT_ID = 'your_spotify_client_id'
+SPOTIPY_CLIENT_SECRET = 'your_spotify_client_secret'
+
+# Initialize Spotify client
+sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
+    client_id=SPOTIPY_CLIENT_ID,
+    client_secret=SPOTIPY_CLIENT_SECRET
+))
 
 # Dictionary to track file creation times and client IDs
 file_tracker = {}
@@ -25,51 +39,41 @@ def generate_client_id():
     return str(uuid.uuid4())
 
 def clean_old_files():
-    """Clean up files older than specified time (now set to 10 seconds)"""
+    """Clean up files older than specified time"""
     while True:
         try:
             now = time.time()
-            cleanup_threshold = 10  # Files older than 10 seconds will be deleted
+            cleanup_threshold = 300  # 5 minutes
             
             with progress_lock:
-                # First get all files in download folder
-                existing_files = set(os.listdir(DOWNLOAD_FOLDER))
+                # Get all items in download folder
+                items = os.listdir(DOWNLOAD_FOLDER)
                 
-                # Track files to keep (recently downloaded)
-                files_to_keep = set()
-                for client_id, file_info in list(file_tracker.items()):
-                    filename = file_info['filename']
-                    file_path = os.path.join(DOWNLOAD_FOLDER, filename)
+                for item in items:
+                    item_path = os.path.join(DOWNLOAD_FOLDER, item)
                     
-                    # If file exists and is still new, keep it
-                    if filename in existing_files and (now - file_info['created_at']) <= cleanup_threshold:
-                        files_to_keep.add(filename)
-                    else:
-                        # File is old or doesn't exist, remove it
-                        if os.path.exists(file_path):
-                            try:
-                                os.remove(file_path)
-                                print(f"Deleted old file: {filename}")
-                            except Exception as e:
-                                print(f"Error deleting file {filename}: {e}")
-                        # Remove from tracker
-                        file_tracker.pop(client_id, None)
-                
-                # Now check for any untracked files in download folder
-                for filename in existing_files - files_to_keep:
-                    file_path = os.path.join(DOWNLOAD_FOLDER, filename)
-                    file_age = now - os.path.getctime(file_path)
-                    if file_age > cleanup_threshold:
-                        try:
-                            os.remove(file_path)
-                            print(f"Deleted untracked old file: {filename}")
-                        except Exception as e:
-                            print(f"Error deleting untracked file {filename}: {e}")
+                    # Skip if item is still being tracked
+                    is_tracked = any(file_info['filename'] == item for file_info in file_tracker.values())
+                    if is_tracked:
+                        continue
+                    
+                    # Check item age
+                    try:
+                        item_age = now - os.path.getmtime(item_path)
+                        if item_age > cleanup_threshold:
+                            if os.path.isdir(item_path):
+                                shutil.rmtree(item_path, ignore_errors=True)
+                                print(f"Deleted old directory: {item}")
+                            else:
+                                os.remove(item_path)
+                                print(f"Deleted old file: {item}")
+                    except Exception as e:
+                        print(f"Error deleting {item}: {e}")
 
         except Exception as e:
             print(f"Error in cleanup thread: {e}")
         
-        time.sleep(5)  # Check every 5 seconds
+        time.sleep(60)  # Check every minute
 
 def update_progress(data, client_id):
     """Update progress based on yt_dlp information."""
@@ -89,8 +93,8 @@ def update_progress(data, client_id):
             progress_status[client_id] = 100
         socketio.emit('progress_update', {'client_id': client_id, 'progress': 100})
 
-def download_video(url, format_option, quality, client_id):
-    """Download video/audio using yt_dlp."""
+def download_video(url, format_option, quality, client_id, timeout=300):
+    """Download video/audio using yt_dlp with better error handling"""
     quality_map = {
         "144": "bestvideo[height<=144]+bestaudio/best",
         "240": "bestvideo[height<=240]+bestaudio/best",
@@ -106,7 +110,12 @@ def download_video(url, format_option, quality, client_id):
 
     ydl_opts = {
         'outtmpl': os.path.join(DOWNLOAD_FOLDER, '%(title)s.%(ext)s'),
-        'progress_hooks': [lambda d: update_progress(d, client_id)]
+        'progress_hooks': [lambda d: update_progress(d, client_id)],
+        'socket_timeout': timeout,
+        'retries': 3,
+        'fragment_retries': 3,
+        'skip_unavailable_fragments': True,
+        'ignoreerrors': True
     }
 
     if format_option == "video":
@@ -127,6 +136,9 @@ def download_video(url, format_option, quality, client_id):
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
+            if not info:
+                raise Exception("Failed to extract video info")
+                
             filename = ydl.prepare_filename(info)
             
             if format_option == "audio":
@@ -135,7 +147,6 @@ def download_video(url, format_option, quality, client_id):
             if filename and os.path.exists(filename):
                 with progress_lock:
                     progress_status[client_id] = 100
-                    # Track the file with creation time
                     file_tracker[client_id] = {
                         'filename': os.path.basename(filename),
                         'created_at': time.time()
@@ -147,18 +158,180 @@ def download_video(url, format_option, quality, client_id):
                 })
                 return filename
             else:
-                print(f"File not found after download: {filename}")
+                raise Exception("File not found after download")
     except Exception as e:
         print(f"Error during download: {e}")
+        with progress_lock:
+            progress_status[client_id] = -1
+        socketio.emit('download_failed', {'client_id': client_id})
+        return None
+
+def get_spotify_playlist_tracks(playlist_url):
+    """Get all tracks from a Spotify playlist"""
+    try:
+        playlist_id = re.search(r'playlist/([a-zA-Z0-9]+)', playlist_url).group(1)
+        results = sp.playlist_tracks(playlist_id)
+        tracks = results['items']
+        
+        while results['next']:
+            results = sp.next(results)
+            tracks.extend(results['items'])
+        
+        track_info = []
+        for item in tracks:
+            track = item['track']
+            if track:  # Skip None tracks
+                artists = ", ".join([artist['name'] for artist in track['artists']])
+                track_info.append(f"{artists} - {track['name']}")
+        
+        return track_info
+    except Exception as e:
+        print(f"Error getting Spotify playlist: {e}")
+        return []
+
+def get_youtube_music_playlist(url):
+    """Get all videos from a YouTube Music playlist"""
+    ydl_opts = {
+        'extract_flat': True,
+        'quiet': True,
+        'ignoreerrors': True
+    }
     
-    with progress_lock:
-        progress_status[client_id] = -1
-    socketio.emit('download_failed', {'client_id': client_id})
-    return None
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if not info:
+                return []
+                
+            if 'entries' in info:
+                return [entry['url'] for entry in info['entries'] if entry]
+        return []
+    except Exception as e:
+        print(f"Error getting YouTube Music playlist: {e}")
+        return []
+
+def create_zip_file(filenames, zip_filename):
+    """Create a zip file containing all the downloaded files"""
+    zip_path = os.path.join(DOWNLOAD_FOLDER, zip_filename)
+    try:
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for file in filenames:
+                file_path = os.path.join(DOWNLOAD_FOLDER, file)
+                if os.path.exists(file_path):
+                    zipf.write(file_path, os.path.basename(file_path))
+        return zip_path
+    except Exception as e:
+        print(f"Error creating zip file: {e}")
+        return None
+
+def download_playlist(url, format_option, quality, client_id, service):
+    """Download all tracks from a playlist and create a zip file"""
+    playlist_dir = os.path.join(DOWNLOAD_FOLDER, f"playlist_{client_id}")
+    os.makedirs(playlist_dir, exist_ok=True)
+    
+    try:
+        downloaded_files = []
+        
+        if service == "spotify":
+            tracks = get_spotify_playlist_tracks(url)
+            if not tracks:
+                raise Exception("No tracks found in Spotify playlist")
+                
+            total_tracks = len(tracks)
+            for i, track in enumerate(tracks):
+                yt_search_url = f"ytsearch:{track}"
+                filename = download_video(yt_search_url, format_option, quality, f"{client_id}_{i}")
+                if filename:
+                    downloaded_files.append(os.path.basename(filename))
+                
+                # Update progress
+                socketio.emit('playlist_progress', {
+                    'client_id': client_id,
+                    'progress': round((i + 1) / total_tracks * 100, 2),
+                    'current': i + 1,
+                    'total': total_tracks,
+                    'stage': 'downloading'  # Tambah stage untuk membedakan proses
+                })
+                
+        elif service == "youtube_music":
+            video_urls = get_youtube_music_playlist(url)
+            if not video_urls:
+                raise Exception("No videos found in YouTube Music playlist")
+                
+            total_tracks = len(video_urls)
+            for i, video_url in enumerate(video_urls):
+                filename = download_video(video_url, format_option, quality, f"{client_id}_{i}")
+                if filename:
+                    downloaded_files.append(os.path.basename(filename))
+                
+                # Update progress
+                socketio.emit('playlist_progress', {
+                    'client_id': client_id,
+                    'progress': round((i + 1) / total_tracks * 100, 2),
+                    'current': i + 1,
+                    'total': total_tracks,
+                    'stage': 'downloading'
+                })
+        
+        # Filter files yang berhasil didownload
+        downloaded_files = [f for f in downloaded_files if f]
+        if not downloaded_files:
+            raise Exception("No files were successfully downloaded")
+        
+        # Kirim notifikasi bahwa download selesai, mulai proses zip
+        socketio.emit('playlist_progress', {
+            'client_id': client_id,
+            'progress': 100,
+            'stage': 'zipping',
+            'message': 'Membuat file ZIP...'
+        })
+        
+        # Buat ZIP file
+        playlist_name = f"playlist_{client_id}.zip"
+        zip_path = create_zip_file(downloaded_files, playlist_name)
+        if not zip_path or not os.path.exists(zip_path):
+            raise Exception("Failed to create zip file")
+        
+        # Track the zip file
+        with progress_lock:
+            file_tracker[client_id] = {
+                'filename': playlist_name,
+                'created_at': time.time()
+            }
+        
+        # Hapus file individual setelah zip berhasil dibuat
+        for file in downloaded_files:
+            try:
+                os.remove(os.path.join(DOWNLOAD_FOLDER, file))
+            except Exception as e:
+                print(f"Error deleting file {file}: {e}")
+        
+        # Kirim notifikasi ke client bahwa ZIP siap
+        socketio.emit('playlist_download_complete', {
+            'client_id': client_id,
+            'filename': playlist_name
+        })
+        
+    except Exception as e:
+        print(f"Error downloading playlist: {e}")
+        socketio.emit('playlist_download_failed', {
+            'client_id': client_id,
+            'message': str(e)
+        })
+    finally:
+        # Clean up the temporary directory
+        try:
+            shutil.rmtree(playlist_dir, ignore_errors=True)
+        except Exception as e:
+            print(f"Error cleaning up playlist directory: {e}")
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/playlist')
+def playlist():
+    return render_template('playlist.html')
 
 @app.route('/download', methods=['POST'])
 def download():
@@ -171,6 +344,25 @@ def download():
     thread.start()
 
     return jsonify({"status": "download started", "client_id": client_id})
+
+@app.route('/download_playlist', methods=['POST'])
+def handle_playlist_download():
+    url = request.form['url']
+    format_option = request.form['format']
+    quality = request.form.get('quality', 'best')
+    service = request.form['service']
+    client_id = generate_client_id()
+    
+    thread = threading.Thread(
+        target=download_playlist,
+        args=(url, format_option, quality, client_id, service)
+    )
+    thread.start()
+
+    return jsonify({
+        "status": "playlist download started",
+        "client_id": client_id
+    })
 
 @app.route('/get_filename', methods=['GET'])
 def get_filename():

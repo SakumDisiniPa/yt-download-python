@@ -2,3 +2,4 @@ flask
 yt-dlp
 socketio
 flask_minify
+spotify
