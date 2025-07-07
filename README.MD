@@ -37,7 +37,7 @@ Dibangun menggunakan:
 
 ```bash
 git clone https://github.com/SakumDisiniPa/yt-download-python
-cd nama-repo-kamu
+cd yt-download-python
 pip install -r requirements.txt
 python app.py
 ````
